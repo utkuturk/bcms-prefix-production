@@ -180,6 +180,8 @@ sim_d_and_fit <- function(seed, n_subs, fit, prior_means, prior_sds) {  # Simula
     newdata = d_new,
     seed = seed,
     chains = 4,
+    cores = 4,
+    threads = threading(8),
     cores = 32,
     iter = 4000,
     warmup = 2000,
