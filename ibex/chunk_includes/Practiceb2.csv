@@ -1,0 +1,10 @@
+RowNum,ItemIdent,Condition,prime,PrimeSoundfile,answerP,pword,target,TargetSoundfile,answerT,tword
+1,P1,Practice,forsirao,forsirao.wav,F,word,lizhao,lizhao.wav,J,nonword
+2,P2,Practice,kobistio,kobistio.wav,J,nonword,iskljuchio,iskljuchio.wav,F,word
+3,P3,Practice,desio,desio.wav,F,word,rapunao,rapunao.wav,J,nonword
+4,P4,Practice,chenjao,chenjao.wav,J,nonword,ispasao,ispasao.wav,F,word
+5,P5,Practice,chitao,chitao.wav,F,word,hvadio,hvadio.wav,J,nonword
+6,P6,Practice,plavirao,plavirao.wav,J,nonword,plashio,plashio.wav,F,word
+7,P7,Practice,trajao,trajao.wav,F,word,prochirio,prochirio.wav,J,nonword
+8,P8,Practice,bredeo,bredeo.wav,J,nonword,reshavao,reshavao.wav,F,word
+9,P9,Practice,vazhio,vazhio.wav,F,word,dezao,dezao.wav,J,nonword
