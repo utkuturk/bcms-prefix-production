@@ -29,6 +29,13 @@ library(purrr)
 library(brms)
 library(ggdist)
 library(knitr)
+
+knitr::opts_chunk$set(
+  dev = c("png", "pdf"),
+  fig.path = "figures/",
+  dpi = 600
+)
+
 ```
 
 
@@ -74,8 +81,25 @@ subj_id <- function(df, cols = c("results_reception_time", "md5_hash_of_particip
   df %>% left_join(lookup, by = cols)
 }
 
-okabe_ito_palette <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", 
-                       "#0072B2", "#D55E00", "#CC79A7", "#000000")
+okabe_ito_palette <-  c("#5B3A6B", "#2A9D8F", "#E76F51", "#264653", "#E9C46A")
+
+library(showtext)
+font_add_google("Public Sans", "public_sans")
+showtext_auto()
+
+slide_bg <- "#F0EBE3"
+
+theme_slides <- function(base_size = 12) {
+  theme_classic(base_size = base_size) %+replace%
+    theme(
+      text = element_text(family = "public_sans"),
+      plot.background = element_rect(fill = slide_bg, color = NA),
+      panel.background = element_rect(fill = slide_bg, color = NA),
+      axis.text.x = element_text(angle = 25, hjust = 0.75),
+      legend.background = element_rect(fill = slide_bg, color = NA),
+      legend.key = element_rect(fill = slide_bg, color = NA)
+    )
+}
 
 ```
 
@@ -83,7 +107,8 @@ okabe_ito_palette <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
 ```{r load-data}
 results <- bind_rows(
   read.pcibex("bcms_priming_1.csv") %>% clean_names(),
-  read.pcibex("bcms_priming_2.csv") %>% clean_names()
+  read.pcibex("bcms_priming_2.csv") %>% clean_names(),
+  read.pcibex("bcms_priming_3.csv") %>% clean_names()
 ) %>% subj_id()
 
 prime_duration_lookup <- results %>%
@@ -118,9 +143,9 @@ target_duration_lookup <- results %>%
   slice_max(target_duration, n = 1, with_ties = FALSE) %>%
   ungroup()
 
-exp <- results %>% 
-  filter(condition == "Exp") %>% 
-  filter(penn_element_name == "answerPrime") %>% 
+exp <- results %>%
+  filter(condition == "Exp") %>%
+  filter(penn_element_name == "answerPrime") %>%
   select(subj, group, item_ident, prime, target, ptype, pword, key_prime, tword, key_target, target_expected_key, prime_rt, target_rt, iti, isi, sequence, trial_n, order=order_number_of_item) %>%
   left_join(prime_duration_lookup, by = c("subj", "group", "item_ident", "order")) %>%
   left_join(target_duration_lookup, by = c("subj", "group", "item_ident", "order")) %>%
@@ -132,15 +157,15 @@ exp <- results %>%
       "C"  = "Control"
     ))
 
-practice <- results %>% 
-  filter(label == "practice") %>% 
-  filter(parameter  == "PressedKey") %>% 
-  select(subj, prime=prime_soundfile, primekey=prime_rt, target=target_soundfile, targetkey=target_rt) 
+practice <- results %>%
+  filter(label == "practice") %>%
+  filter(parameter  == "PressedKey") %>%
+  select(subj, prime=prime_soundfile, primekey=prime_rt, target=target_soundfile, targetkey=target_rt)
 
 
-filler <- results %>% 
-  filter(condition == "Filler") %>% 
-  filter(penn_element_name == "answerPrime") %>% 
+filler <- results %>%
+  filter(condition == "Filler") %>%
+  filter(penn_element_name == "answerPrime") %>%
   select(subj, group, item_ident, prime, target, ptype, pword, key_prime, tword, key_target, target_expected_key, prime_rt, target_rt, iti, isi, sequence, trial_n, order=order_number_of_item)
 
 N_subj <- n_distinct(exp$subj)
@@ -160,7 +185,7 @@ filler_accuracy <- filler %>%
   summarize(
     p_acc_mean = mean(p_acc),
     t_acc_mean = mean(t_acc)
-  ) 
+  )
 
 bad_subjects <- filler_accuracy %>%
   filter(p_acc_mean < 0.75 | t_acc_mean < 0.75) %>% pull(subj)
@@ -176,19 +201,19 @@ This report analyzes the status of Bosnian/Croatian/Montenegrin/Serbian (BCMS) p
 `r N_subj` students at the University of Novi Sad, Serbia completed an unmasked auditory continous lexical decision task. Sample size was determined via a priori power analysis to ensure 80% power following [@Vasishthetal2023]. `r n_bad_subjects` participant(s) were excluded due to filler accuracy falling below 75%.
 
 
-Critical targets are high frequency simplex verbs in the masculine active participle form. Prime-target relations include: 
+Critical targets are high frequency simplex verbs in the masculine active participle form. Prime-target relations include:
 
-- morphologically and semantically related (predao [gave over] --> dao [gave]), 
+- morphologically and semantically related (predao [gave over] --> dao [gave]),
 - morphologically related but semantically opaque (prodao [sold] --> dao [gave]),
 - pseudo-morphologically related (nadao [hoped] --> dao [gave]),
 - phonologically related (vladao [ruled] --> dao [gave]),
 - unrelated controls (preneo [carried over] --> dao [gave])
 
-Participants are assigned to one of four experimental lists, each containing 30 critical item pairs: 5 per priming condition and 10 controls. Each target appears only once per list but is paired with different prime types across lists, enabling within-item comparisons while avoiding repetition effects. 
+Participants are assigned to one of four experimental lists, each containing 30 critical item pairs: 5 per priming condition and 10 controls. Each target appears only once per list but is paired with different prime types across lists, enabling within-item comparisons while avoiding repetition effects.
 
 We include 200 filler pairs, which consist of 50% real words and 50% non-words (by making single-segment modifications to existing verbs while respecting BCMS phonotactics). Due to language-specific constraints, the experiment employs a balanced incomplete block design, which accommodates the fact that not all targets can be paired across all conditions, while each condition is equally represented and can be compared to controls [@BechhoferTamhane1981].
 
-The descriptive plots below first show accuracy, then prime RTs, and then target RTs. The Bayesian model later in the report is fit only to trials with a **correct response to the target**, after the RT trimming steps described below. We incorporate random effects for participants and items to account for within-subject and within-item variability [@Baayen2008]. Our predictors include prime condition, prime duration, target duration, prime Response Time (RT), trial number, and Inter-Stimulus Interval (ISI). Since we are mainly interested in by-condition differences, we treat our numeral predictors as log-transformed and centered (z-scored). Our baselines then are the 'average' prime duration, target duration, prime RT, trial number, and ISI. 
+The descriptive plots below first show accuracy, then prime RTs, and then target RTs. The Bayesian model later in the report is fit only to trials with a **correct response to the target**, after the RT trimming steps described below. We incorporate random effects for participants and items to account for within-subject and within-item variability [@Baayen2008]. Our predictors include prime condition, prime duration, target duration, prime Response Time (RT), trial number, and Inter-Stimulus Interval (ISI). Since we are mainly interested in by-condition differences, we treat our numeral predictors as log-transformed and centered (z-scored). Our baselines then are the 'average' prime duration, target duration, prime RT, trial number, and ISI.
 
 We employed weakly informative priors as follows. The intercept prior is centered on 6.8 (approximately $e^{6.8} \approx 900$ ms), reflecting a plausible grand-mean log RT. All fixed-effect slopes receive a $\text{Normal}(0, 0.5)$ prior, which is skeptical of large effects but permits the data to overwhelm the prior. Random-effect standard deviations and the residual SD use an $\text{Exponential}(1)$ prior, which gently regularizes toward smaller variance components. Correlation matrices among random effects are assigned an $\text{LKJ}(2)$ prior, which mildly favors lower correlations and helps regularize the maximal random-effect structure.
 
@@ -237,10 +262,10 @@ exp_accuracy <- exp %>%
   group_by(ptype) %>%
   summarize(
     p_acc_mean = mean(p_acc),
-    p_acc_se = sd(p_acc)/sqrt(n()), 
+    p_acc_se = sd(p_acc)/sqrt(n()),
     t_acc_mean = mean(t_acc),
     t_acc_se = sd(t_acc)/sqrt(n())
-  ) 
+  )
 
 
 exp_accuracy_long <- exp_accuracy %>%
@@ -274,8 +299,8 @@ ggplot(exp_accuracy_long, aes(x = ptype, y = mean_pct)) +
                 width = 0.2) +
   facet_wrap(~measure) +
   labs(x = "Prime Type", y = "Accuracy (%)") +
-  theme_classic() +
-  theme(axis.text.x = element_text(angle = 25, hjust = 1))
+  theme_slides() +
+  theme(axis.text.x = element_text(angle = 25, hjust = 0.75))
 ```
 
 ```{r rt-exclusion}
@@ -285,7 +310,7 @@ d1 <- exp %>%
                             (pword == "nonword" & key_prime == "J")),
            t_acc = as.integer((tword == "word" & key_target == "F") |
                             (tword == "nonword" & key_target == "J"))) %>%
-  filter(t_acc == 1) 
+  filter(t_acc == 1)
 
 pct_excluded_accuracy <- round((nrow(exp) - nrow(d1)) / nrow(exp) * 100, 2)
 
@@ -316,6 +341,14 @@ prime_rt_summary <- exp %>%
     se_prime_rt = sd(prime_rt) / sqrt(n()),
     .groups = "drop"
   )
+prime_rt_summary_log <- exp %>%
+  group_by(ptype) %>%
+  summarise(
+    n = n(),
+    mean_prime_rt = mean(log(prime_rt)),
+    se_prime_rt = sd(log(prime_rt)) / sqrt(n()),
+    .groups = "drop"
+  )
 
 kable(
   prime_rt_summary,
@@ -326,21 +359,48 @@ kable(
 ```
 
 ```{r prime-rt-plot, fig.width=8.5, fig.height=3.6, fig.cap="Prime RTs by prime condition, using only target-correct trials after RT trimming. The dashed line marks the Control-condition mean."}
-prime_rt_control_mean <- exp %>%
+
+
+# prime_rt_control_mean <- exp %>%
+#   filter(ptype == "Control") %>%
+#   summarise(control_mean = mean(prime_rt)) %>%
+#   pull(control_mean)
+
+# exp %>%
+#   ggplot(aes(x = ptype, y = mean_prime_rt)) +
+#   geom_hline(yintercept = prime_rt_control_mean, linewidth = 0.4, linetype = "dashed", color = "grey55") +
+#   geom_pointrange(data = prime_rt_summary,
+#                   aes(x = ptype, y = mean_prime_rt,
+#                       ymin = mean_prime_rt - se_prime_rt,
+#                       ymax = mean_prime_rt + se_prime_rt,
+#                       color = ptype),
+#                   size = 0.5, linewidth = 0.6, show.legend = FALSE) +
+#   scale_color_manual(values = okabe_ito_palette) +
+#   # coord_cartesian(ylim = c(1200, 1400)) +
+#   labs(x = "Prime condition", y = "Prime RT (ms)") +
+#   theme_classic(base_size = 12) +
+#   theme(axis.text.x = element_text(angle = 25, hjust = 1))
+
+
+prime_rt_control_mean_log <- exp %>%
   filter(ptype == "Control") %>%
-  summarise(control_mean = mean(prime_rt)) %>%
+  summarise(control_mean = mean(log(prime_rt))) %>%
   pull(control_mean)
 
 exp %>%
-  ggplot(aes(x = ptype, y = prime_rt, color = ptype)) +
-  geom_hline(yintercept = prime_rt_control_mean, linewidth = 0.4, linetype = "dashed", color = "grey55") +
-  geom_boxplot(aes(fill = ptype), width = 0.56, alpha = 0.18, outlier.shape = NA, show.legend = FALSE) +
-  geom_point(position = position_jitter(width = 0.08, height = 0), alpha = 0.12, size = 1.1, show.legend = FALSE) +
+  ggplot(aes(x = ptype, y = mean_prime_rt)) +
+  geom_hline(yintercept = prime_rt_control_mean_log, linewidth = 0.4, linetype = "dashed", color = "grey55") +
+  geom_pointrange(data = prime_rt_summary_log,
+                  aes(x = ptype, y = mean_prime_rt,
+                      ymin = mean_prime_rt - se_prime_rt,
+                      ymax = mean_prime_rt + se_prime_rt,
+                      color = ptype),
+                  size = 0.5, linewidth = 0.6, show.legend = FALSE) +
   scale_color_manual(values = okabe_ito_palette) +
-  scale_fill_manual(values = okabe_ito_palette) +
-  labs(x = "Prime condition", y = "Prime RT (ms)") +
-  theme_classic(base_size = 12) +
-  theme(axis.text.x = element_text(angle = 25, hjust = 1))
+  labs(x = "Prime condition", y = "Log prime RT") +
+  theme_slides()  +
+  theme(axis.text.x = element_text(angle = 25, hjust = 0.75))
+
 ```
 
 ```{r prime-rt-check}
@@ -447,6 +507,7 @@ target_rt_summary <- exp_model %>%
     .groups = "drop"
   )
 
+
 kable(
   target_rt_summary,
   digits = 2,
@@ -509,21 +570,26 @@ Compared to the Control condition, all morphologically related conditions showed
 
 
 ```{r target-rt-boxplot, fig.width=8.5, fig.height=3.6, fig.cap="Log-transformed target RTs by prime condition. Boxes show the condition distribution; dots show individual observations with low alpha. The dashed line marks the Control-condition mean."}
+
 target_rt_control_mean <- exp_model %>%
   filter(ptype_label == "Control") %>%
   summarise(control_mean = mean(log_target_rt)) %>%
   pull(control_mean)
 
 exp_model %>%
-  ggplot(aes(x = ptype_label, y = log_target_rt, color = ptype_label)) +
+  ggplot(aes(x = ptype_label, y = mean_log_rt)) +
   geom_hline(yintercept = target_rt_control_mean, linewidth = 0.4, linetype = "dashed", color = "grey55") +
-  geom_boxplot(aes(fill = ptype_label), width = 0.56, alpha = 0.18, outlier.shape = NA, show.legend = FALSE) +
-  geom_point(position = position_jitter(width = 0.08, height = 0), alpha = 0.12, size = 1.1, show.legend = FALSE) +
+  geom_pointrange(data = target_rt_summary,
+                  aes(x = ptype_label, y = mean_log_rt,
+                      ymin = mean_log_rt - se_log_rt,
+                      ymax = mean_log_rt + se_log_rt,
+                      color = ptype_label),
+                  size = 0.5, linewidth = 0.6, show.legend = FALSE) +
   scale_color_manual(values = okabe_ito_palette) +
-  scale_fill_manual(values = okabe_ito_palette) +
   labs(x = "Prime condition", y = "Log target RT") +
-  theme_classic(base_size = 12) +
-  theme(axis.text.x = element_text(angle = 25, hjust = 1))
+  theme_slides() +
+  theme(axis.text.x = element_text(angle = 25, hjust = 0.75))
+
 ```
 
 ## Statistical analysis
@@ -778,13 +844,13 @@ ggplot(plot_data, aes(x = parameter, y = value)) +
   ) +
   # Column header
   annotate(
-    "text", 
-    x = 9.5, 
-    y = x_annot, 
+    "text",
+    x = 9.5,
+    y = x_annot,
     label = "underline('P(β < 0)')", # Note the quotes inside underline
     parse = TRUE,                   # This is critical!
-    family = "mono", 
-    size = 3.5, 
+    family = "mono",
+    size = 3.5,
     hjust = 0.5
   ) +
   # P(β < 0) labels per parameter
@@ -799,8 +865,8 @@ ggplot(plot_data, aes(x = parameter, y = value)) +
   scale_fill_manual(values = c("negative" = "#66BB6A", "positive" = "#EF5350")) +
   scale_color_manual(values = c("negative" = "#4CAF50", "positive" = "#E53935")) +
   coord_flip(clip = "off") +
-  labs(x = NULL, y = expression(beta)) +
-  theme_classic(base_size = 12) +
+  labs(x = NULL, y = "Coefficient Estimate") +
+  theme_slides() +
   theme(plot.margin = margin(5.5, 60, 5.5, 5.5))
 ```
 
@@ -883,13 +949,13 @@ ggplot(contrast_draws_plot, aes(x = contrast, y = value)) +
   ) +
   # Column header
   annotate(
-    "text", 
-    x = 6.5, 
-    y = x_annot_c, 
+    "text",
+    x = 6.5,
+    y = x_annot_c,
     label = "underline(P(Delta*beta < 0))", # plotmath syntax
     parse = TRUE,                         # interprets the string as a formula
-    family = "mono", 
-    size = 3.5, 
+    family = "mono",
+    size = 3.5,
     hjust = 0.5
   ) +
   # P(Δβ < 0) labels per contrast
@@ -904,7 +970,164 @@ ggplot(contrast_draws_plot, aes(x = contrast, y = value)) +
   scale_fill_manual(values = c("negative" = "#66BB6A", "positive" = "#EF5350")) +
   scale_color_manual(values = c("negative" = "#4CAF50", "positive" = "#E53935")) +
   coord_flip(clip = "off") +
-  labs(x = NULL, y = expression(Delta * beta)) +
-  theme_classic(base_size = 12) +
+  labs(x = NULL, y = "Coefficient Difference") +
+  theme_slides() +
+  theme(plot.margin = margin(5.5, 60, 5.5, 5.5))
+```
+
+
+```{r combined-contrasts, results='asis'}
+# ── Combined hypothesis strings ──────────────────────────────────────────────
+# Names with newlines for plots
+combined_hypothesis_names_plot <- c(
+  "Genuine prefix\nvs.\nPseudo-Morphological",
+  "Surface segmentable\nvs.\nMorpho-Semantic"
+)
+
+# Names without newlines for tables/prose
+combined_hypothesis_names_table <- c(
+  "Genuine prefix vs. Pseudo-Morphological",
+  "Surface segmentable vs. Morpho-Semantic"
+)
+
+# Use the table names as the canonical keys
+combined_hypothesis_strings <- c(
+  "Genuine prefix vs. Pseudo-Morphological" =
+    "(ptype_simpleMorphoSemantic + ptype_simpleMorphoOpaque)/2 - ptype_simplePseudoMorphological = 0",
+  "Surface segmentable vs. Morpho-Semantic" =
+    "(ptype_simpleMorphoOpaque + ptype_simplePseudoMorphological)/2 - ptype_simpleMorphoSemantic = 0"
+)
+
+combined_hypotheses <- hypothesis(target_rt_brm, combined_hypothesis_strings)
+
+# ── Draws for plotting ───────────────────────────────────────────────────────
+combined_contrast_draws <- tibble(
+  contrast = names(combined_hypothesis_strings),
+  draw_values = list(
+    (target_draws$b_ptype_simpleMorphoSemantic + target_draws$b_ptype_simpleMorphoOpaque) / 2 -
+      target_draws$b_ptype_simplePseudoMorphological,
+    (target_draws$b_ptype_simpleMorphoOpaque + target_draws$b_ptype_simplePseudoMorphological) / 2 -
+      target_draws$b_ptype_simpleMorphoSemantic
+  )
+) %>%
+  unnest_longer(draw_values, values_to = "value")
+
+# ── Summary table ─────────────────────────────────────────────────────────────
+combined_hypothesis_table <- combined_hypotheses$hypothesis %>%
+  as.data.frame() %>%
+  as_tibble() %>%
+  mutate(contrast = names(combined_hypothesis_strings), .before = 1) %>%
+  mutate(
+    # Compute direction prob from draws directly
+    prob_gt_zero = map_dbl(seq_along(combined_hypothesis_strings), function(i) {
+      draws <- combined_contrast_draws %>%
+        filter(contrast == names(combined_hypothesis_strings)[i]) %>%
+        pull(value)
+      mean(draws > 0)
+    })
+  ) %>%
+  transmute(
+    contrast,
+    `β diff` = sprintf("%.3f", Estimate),
+    `SE` = sprintf("%.3f", Est.Error),
+    CI = sprintf("[%.3f, %.3f]", CI.Lower, CI.Upper),
+    direction_prob = case_when(
+      prob_gt_zero >= 0.5 & prob_gt_zero > 0.999 ~ "P(β > 0) > 0.999",
+      prob_gt_zero >= 0.5 ~ sprintf("P(β > 0) = %.3f", prob_gt_zero),
+      (1 - prob_gt_zero) > 0.999 ~ "P(β < 0) > 0.999",
+      TRUE ~ sprintf("P(β < 0) = %.3f", 1 - prob_gt_zero)
+    )
+  )
+
+kable(
+  combined_hypothesis_table,
+  align = c("l", "r", "r", "r", "r"),
+  caption = "Composite contrasts testing whether Morpho-Opaque clusters with Morpho-Semantic or Pseudo-Morphological."
+)
+
+# ── Prose summary ─────────────────────────────────────────────────────────────
+cat("\n\nThese composite contrasts ask whether Morpho-Opaque behaves more like the genuinely prefixed condition (Morpho-Semantic) or the surface-segmentable condition (Pseudo-Morphological). If only the first contrast is credible, MO patterns with real morphology; if only the second, MO patterns with pseudo-morphology; if both or neither, MO occupies an intermediate position.\n\n")
+
+for (i in seq_len(nrow(combined_hypothesis_table))) {
+  cat(
+    "- ",
+    combined_hypothesis_table$contrast[i],
+    ": estimated difference = ",
+    combined_hypothesis_table$`β diff`[i],
+    ", ",
+    combined_hypothesis_table$direction_prob[i],
+    ", CI ",
+    combined_hypothesis_table$CI[i],
+    ".\n",
+    sep = ""
+  )
+}
+```
+
+```{r combined-contrasts-plot, fig.width=10, fig.height=2.8, fig.cap="Posterior distributions for composite contrasts. Green slabs indicate a negative difference (left cluster faster); red slabs indicate a positive difference (left cluster slower). The right column shows the directional posterior probability, bolded when strongly directional."}
+combined_draws_plot <- combined_contrast_draws %>%
+  mutate(
+    contrast = factor(
+      recode(contrast, !!!setNames(combined_hypothesis_names_plot, combined_hypothesis_names_table)),
+      levels = rev(combined_hypothesis_names_plot)
+    )
+  )
+
+combined_summary <- combined_draws_plot %>%
+  group_by(contrast) %>%
+  summarise(
+    prob_neg = mean(value < 0),
+    median_val = median(value),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    direction = ifelse(median_val < 0, "negative", "positive"),
+    is_strong = prob_neg > 0.89 | prob_neg < 0.11,
+    prob_label = case_when(
+      prob_neg > 0.999 ~ "> 0.999",
+      prob_neg < 0.001 ~ "< 0.001",
+      TRUE ~ sprintf("%.3f", prob_neg)
+    )
+  )
+combined_draws_plot <- combined_draws_plot %>%
+  left_join(combined_summary %>% select(contrast, direction), by = "contrast")
+
+x_annot_comb <- max(combined_draws_plot$value, na.rm = TRUE) * 1.35
+
+ggplot(combined_draws_plot, aes(x = contrast, y = value)) +
+  geom_hline(yintercept = 0, linewidth = 0.4, linetype = "dashed", color = "grey55") +
+  stat_slabinterval(
+    aes(fill = direction, color = direction),
+    side = "top",
+    point_interval = median_qi,
+    .width = c(0.66, 0.95),
+    alpha = 0.7,
+    point_color = "grey30",
+    interval_color = "grey30",
+    show.legend = FALSE
+  ) +
+  annotate(
+    "text",
+    x = 2.5,
+    y = x_annot_comb,
+    label = "underline(P(Delta*beta < 0))",
+    parse = TRUE,
+    family = "mono",
+    size = 3.5,
+    hjust = 0.5
+  ) +
+  geom_text(
+    data = combined_summary,
+    aes(x = contrast, y = x_annot_comb,
+        label = prob_label,
+        fontface = ifelse(is_strong, "bold", "plain")),
+    family = "mono", size = 3.3, hjust = 0.5,
+    inherit.aes = FALSE
+  ) +
+  scale_fill_manual(values = c("negative" = "#66BB6A", "positive" = "#EF5350")) +
+  scale_color_manual(values = c("negative" = "#4CAF50", "positive" = "#E53935")) +
+  coord_flip(clip = "off") +
+  labs(x = NULL, y = "Coefficient Difference") +
+  theme_slides() +
   theme(plot.margin = margin(5.5, 60, 5.5, 5.5))
 ```
